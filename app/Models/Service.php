@@ -27,6 +27,7 @@ use Visus\Cuid2\Cuid2;
         'description' => ['type' => 'string', 'description' => 'The description of the service.'],
         'docker_compose_raw' => ['type' => 'string', 'description' => 'The raw docker-compose.yml file of the service.'],
         'docker_compose' => ['type' => 'string', 'description' => 'The docker-compose.yml file that is parsed and modified by Coolify.'],
+        'watch_paths' => ['type' => 'array', 'description' => 'Array of glob patterns to watch for file changes that trigger deployments.'],
         'destination_type' => ['type' => 'string', 'description' => 'Destination type.'],
         'destination_id' => ['type' => 'integer', 'description' => 'The unique identifier of the destination where the service is running.'],
         'connect_to_docker_network' => ['type' => 'boolean', 'description' => 'The flag to connect the service to the predefined Docker network.'],
@@ -48,6 +49,10 @@ class Service extends BaseModel
     protected $guarded = [];
 
     protected $appends = ['server_status', 'status'];
+
+    protected $casts = [
+        'watch_paths' => 'array',
+    ];
 
     protected static function booted()
     {
@@ -1319,5 +1324,54 @@ class Service extends BaseModel
                 return true;
             }
         );
+    }
+
+    /**
+     * Check if the given file paths match any of the configured watch patterns.
+     *
+     * @param array|string $filePaths Array or single file path to check against watch patterns
+     * @return bool True if any file matches any watch pattern, false otherwise
+     */
+    public function isWatchPathsTriggered($filePaths): bool
+    {
+        // If no watch paths configured, return false
+        if (empty($this->watch_paths)) {
+            return false;
+        }
+
+        // Ensure watch_paths is an array
+        $watchPatterns = is_array($this->watch_paths) ? $this->watch_paths : [$this->watch_paths];
+        
+        // Ensure filePaths is an array
+        $filePaths = is_array($filePaths) ? $filePaths : [$filePaths];
+
+        // Check each file path against each watch pattern
+        foreach ($filePaths as $filePath) {
+            foreach ($watchPatterns as $pattern) {
+                // Use fnmatch for glob pattern matching
+                // FNM_PATHNAME flag ensures that * doesn't match /
+                if (fnmatch($pattern, $filePath, FNM_PATHNAME)) {
+                    return true;
+                }
+                
+                // Also check if the pattern matches any parent directory of the file
+                // This handles patterns like "src/**" matching "src/subfolder/file.js"
+                if (str_contains($pattern, '**')) {
+                    // Convert ** to a regex pattern for recursive matching
+                    $regexPattern = str_replace(
+                        ['/', '**', '*', '?'],
+                        ['\/', '.*', '[^/]*', '.'],
+                        $pattern
+                    );
+                    $regexPattern = '/^' . $regexPattern . '$/i';
+                    
+                    if (preg_match($regexPattern, $filePath)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }
