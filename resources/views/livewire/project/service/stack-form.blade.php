@@ -22,6 +22,18 @@
         <x-forms.checkbox canGate="update" :canResource="$service" instantSave id="service.connect_to_docker_network" label="Connect To Predefined Network"
             helper="By default, you do not reach the Coolify defined networks.<br>Starting a docker compose based resource will have an internal network. <br>If you connect to a Coolify defined network, you maybe need to use different internal DNS names to connect to a resource.<br><br>For more information, check <a class='underline dark:text-white' target='_blank' href='https://coolify.io/docs/knowledge-base/docker/compose#connect-to-predefined-networks'>this</a>." />
     </div>
+    <div>
+        <x-forms.textarea 
+            canGate="update" 
+            :canResource="$service" 
+            id="watchPaths" 
+            label="Watch Paths" 
+            placeholder="services/api/**&#10;shared/**"
+            rows="5"
+            wire:model.lazy="watchPaths"
+            wire:change="instantSaveWatchPaths"
+            helper="Enter glob patterns (one per line) to watch for file changes that trigger deployments. Use ** for recursive matching. Example: services/api/**" />
+    </div>
     @if ($fields->count() > 0)
         <div>
             <h3>Service Specific Configuration</h3>

@@ -12,6 +12,8 @@ class StackForm extends Component
     public Service $service;
 
     public Collection $fields;
+    
+    public string $watchPaths = '';
 
     protected $listeners = ['saveCompose'];
 
@@ -23,6 +25,7 @@ class StackForm extends Component
             'service.name' => ValidationPatterns::nameRules(),
             'service.description' => ValidationPatterns::descriptionRules(),
             'service.connect_to_docker_network' => 'nullable',
+            'watchPaths' => 'nullable|string',
         ];
 
         // Add dynamic field rules
@@ -52,6 +55,10 @@ class StackForm extends Component
 
     public function mount()
     {
+        // Initialize watch paths from service
+        $watchPathsArray = $this->service->watch_paths ?? [];
+        $this->watchPaths = is_array($watchPathsArray) ? implode("\n", $watchPathsArray) : '';
+        
         $this->fields = collect([]);
         $extraFields = $this->service->extraFields();
         foreach ($extraFields as $serviceName => $fields) {
@@ -96,11 +103,31 @@ class StackForm extends Component
         $this->service->save();
         $this->dispatch('success', 'Service settings saved.');
     }
+    
+    public function instantSaveWatchPaths()
+    {
+        $this->saveWatchPaths();
+        $this->service->save();
+        $this->dispatch('success', 'Watch paths saved.');
+    }
+    
+    private function saveWatchPaths()
+    {
+        // Convert textarea input to array, filtering out empty lines
+        $paths = array_filter(
+            array_map('trim', explode("\n", $this->watchPaths)),
+            fn($path) => !empty($path)
+        );
+        
+        // Save as array or null if empty
+        $this->service->watch_paths = !empty($paths) ? $paths : null;
+    }
 
     public function submit($notify = true)
     {
         try {
             $this->validate();
+            $this->saveWatchPaths();
             $this->service->save();
             $this->service->saveExtraFields($this->fields);
             $this->service->parse();
