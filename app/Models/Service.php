@@ -1328,15 +1328,19 @@ class Service extends BaseModel
 
     /**
      * Check if the given file paths match any of the configured watch patterns.
+     * 
+     * IMPORTANT: Returns true when watch_paths is empty or null to maintain backward compatibility.
+     * This ensures services without configured watch patterns will deploy normally on any file change.
      *
      * @param array|string $filePaths Array or single file path to check against watch patterns
-     * @return bool True if any file matches any watch pattern, false otherwise
+     * @return bool True if watch_paths is empty/null OR if any file matches any watch pattern
      */
     public function isWatchPathsTriggered($filePaths): bool
     {
-        // If no watch paths configured, return false
+        // If no watch paths configured, return true for backward compatibility
+        // This ensures deployments trigger normally when watch_paths is empty or null
         if (empty($this->watch_paths)) {
-            return false;
+            return true;
         }
 
         // Ensure watch_paths is an array
